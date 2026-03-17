@@ -3,6 +3,8 @@
 package integration
 
 import (
+	"bytes"
+	"os/exec"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,6 +41,30 @@ func TestMain(m *testing.M) {
 		_ = os.Setenv("DOCKER_HOST", "unix:///var/run/docker.sock")
 	}
 
+	// If Docker isn't actually reachable in this environment, gracefully skip
+	// all integration tests instead of panicking deep inside testcontainers.
+	if !dockerReachable() {
+		// Print a single line so it's obvious why the tests were skipped.
+		_, _ = os.Stderr.WriteString("skipping integration tests: Docker daemon not reachable from WSL\n")
+		os.Exit(0)
+	}
+
 	os.Exit(m.Run())
+}
+
+func dockerReachable() bool {
+	path, err := exec.LookPath("docker")
+	if err != nil {
+		return false
+	}
+
+	cmd := exec.Command(path, "info")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+	if err := cmd.Run(); err != nil {
+		return false
+	}
+	return true
 }
 
