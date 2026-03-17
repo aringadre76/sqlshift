@@ -1,0 +1,3 @@
+database_url = "postgres://user:pass@localhost:5432/mydb?sslmode=disable"
+migrations_dir = "./migrations"
+table_name = "shift_migrations"
