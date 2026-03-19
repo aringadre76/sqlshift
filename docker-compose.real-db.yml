@@ -1,0 +1,31 @@
+# Prod-shaped local Postgres + MySQL for manual / smoke testing.
+# See docs/real-world-testing.md
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: sqlshift
+      POSTGRES_PASSWORD: sqlshift
+      POSTGRES_DB: sqlshift_real
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sqlshift -d sqlshift_real"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
+  mysql:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: sqlshift_real
+      MYSQL_USER: sqlshift
+      MYSQL_PASSWORD: sqlshift
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-usqlshift", "-psqlshift"]
+      interval: 5s
+      timeout: 5s
+      retries: 20

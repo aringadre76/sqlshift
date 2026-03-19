@@ -81,6 +81,22 @@ make lint
 make release-dry
 ```
 
+## Real-world / staging testing
+
+For the same **binary + config + DB shape** you use in deploys, see **[docs/real-world-testing.md](docs/real-world-testing.md)**.
+
+Quick local stack (Postgres 16 + MySQL 8):
+
+```bash
+docker compose -f docker-compose.real-db.yml up -d
+```
+
+Smoke harness (builds `./bin/sqlshift` if missing):
+
+```bash
+./scripts/smoke-real-db.sh --database-url "postgres://sqlshift:sqlshift@127.0.0.1:5432/sqlshift_real?sslmode=disable"
+```
+
 ## Comparison
 
 | Tool | Style | Runtime | License |

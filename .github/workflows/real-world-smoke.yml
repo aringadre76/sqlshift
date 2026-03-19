@@ -1,0 +1,66 @@
+name: Real-world smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/**"
+      - "docs/real-world-testing.md"
+      - "docker-compose.real-db.yml"
+      - ".github/workflows/real-world-smoke.yml"
+      - "internal/**"
+      - "cmd/**"
+      - "go.mod"
+      - "go.sum"
+      - "Makefile"
+
+jobs:
+  smoke-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: sqlshift
+          POSTGRES_PASSWORD: sqlshift
+          POSTGRES_DB: sqlshift_real
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U sqlshift -d sqlshift_real"
+          --health-interval=3s
+          --health-timeout=5s
+          --health-retries=15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Smoke (Postgres)
+        run: ./scripts/smoke-real-db.sh --database-url "postgres://sqlshift:sqlshift@127.0.0.1:5432/sqlshift_real?sslmode=disable"
+
+  smoke-mysql:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: rootpass
+          MYSQL_DATABASE: sqlshift_real
+          MYSQL_USER: sqlshift
+          MYSQL_PASSWORD: sqlshift
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -usqlshift -psqlshift"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Smoke (MySQL)
+        run: ./scripts/smoke-real-db.sh --database-url "mysql://sqlshift:sqlshift@127.0.0.1:3306/sqlshift_real"
