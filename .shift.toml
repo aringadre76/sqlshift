@@ -1,0 +1,3 @@
+database_url = ""
+migrations_dir = "./migrations"
+table_name = "shift_migrations"
