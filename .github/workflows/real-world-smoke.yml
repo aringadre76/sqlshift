@@ -16,6 +16,16 @@ on:
       - "Makefile"
 
 jobs:
+  e2e-user-journey-sqlite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: E2E user journey (SQLite)
+        run: ./scripts/e2e-user-journey.sh
+
   smoke-postgres:
     runs-on: ubuntu-latest
     services:

@@ -46,7 +46,8 @@ var createCmd = &cobra.Command{
 			return fmt.Errorf("creating migration file %s: %w", path, err)
 		}
 
-		cmd.Println(path)
+		// stdout so shell scripts can capture the path (Cobra may route cmd.Println to stderr in some setups).
+		_, _ = fmt.Fprintln(os.Stdout, path)
 		return nil
 	},
 }

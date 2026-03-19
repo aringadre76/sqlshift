@@ -12,6 +12,33 @@ This document describes how to align with real deployments and how to run the **
 | `make test-integration` | When Docker is available; Postgres + MySQL via testcontainers. |
 | `docker compose -f docker-compose.real-db.yml up -d` | Local “prod-shaped” Postgres 16 + MySQL 8. |
 | `scripts/smoke-real-db.sh` | Same workflow as many deploy scripts: **build binary → up → status → validate → (down)**. |
+| `make e2e-user` / `scripts/e2e-user-journey.sh` | **Full beginner path**: `init` → `create` → fill in SQL (simulated) → `up` / `status` / `validate` / `down`. |
+| `make e2e-user-docker` | Same journey on **SQLite + Postgres + MySQL** after starting compose. |
+
+## User journey (what a real person does)
+
+Most users do not start from pre-made migration folders. They:
+
+1. Install or build `sqlshift`, then run **`sqlshift init`** in a project (creates `./migrations` and `.shift.toml`).
+2. Run **`sqlshift create <name>`** to add a numbered file, then **edit SQL** in an editor.
+3. Point **`database_url`** (or `SHIFT_DATABASE_URL` / `--database-url`) at a real database.
+4. Run **`up`**, then **`status`** / **`validate`** as needed; use **`down`** mainly in dev/staging.
+
+The script **`scripts/e2e-user-journey.sh`** automates that flow in a **fresh temp directory** so it matches a new repo clone:
+
+- Default: **SQLite file** only (no Docker).
+- **`--with-docker`**: runs **`docker compose -f docker-compose.real-db.yml up`**, then repeats the journey on SQLite, Postgres, and MySQL. Postgres/MySQL use a **unique `--table-name`** per run so you can re-run against the same compose stack without history collisions.
+
+```bash
+make e2e-user
+make e2e-user-docker   # needs Docker; starts the fake “prod-shaped” DBs
+```
+
+Single database:
+
+```bash
+./scripts/e2e-user-journey.sh --only postgres --with-docker
+```
 
 ## Environment parity
 
@@ -94,7 +121,14 @@ Example URLs (passwords match compose file):
 
 ## CI and staging pipelines
 
-GitHub Actions: optional workflow **Real-world smoke** (`.github/workflows/real-world-smoke.yml`) runs the smoke script against **Postgres** and **MySQL** service containers. Trigger: `workflow_dispatch` or pushes to `main` that touch relevant paths.
+GitHub Actions: workflow **Real-world smoke** (`.github/workflows/real-world-smoke.yml`) includes:
+
+- **E2E user journey (SQLite)** — `scripts/e2e-user-journey.sh` (no Docker).
+- **Smoke** — `scripts/smoke-real-db.sh` against **Postgres** and **MySQL** service containers.
+
+Trigger: `workflow_dispatch` or pushes to `main` that touch relevant paths.
+
+For **`make e2e-user-docker`** locally you need the **Docker Compose V2** plugin (`docker compose`) or **`docker-compose`** (v1); without `--wait`, the script waits ~25s for MySQL/Postgres to become ready.
 
 In your own staging pipeline, add a step after building the binary:
 

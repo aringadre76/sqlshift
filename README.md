@@ -97,6 +97,15 @@ Smoke harness (builds `./bin/sqlshift` if missing):
 ./scripts/smoke-real-db.sh --database-url "postgres://sqlshift:sqlshift@127.0.0.1:5432/sqlshift_real?sslmode=disable"
 ```
 
+**Full user journey** (real workflow: `init` → `create` → edit migration → `up` / `status` / `validate` / `down`):
+
+```bash
+make e2e-user                 # SQLite file DB, no Docker
+make e2e-user-docker          # starts compose + SQLite, Postgres, MySQL
+```
+
+See **[docs/real-world-testing.md](docs/real-world-testing.md)** for details.
+
 ## Comparison
 
 | Tool | Style | Runtime | License |
