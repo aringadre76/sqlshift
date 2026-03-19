@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"fmt"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	dbpkg "github.com/aringadre76/sqlshift/internal/db"
@@ -48,6 +49,39 @@ func TestMySQLUpIdempotency(t *testing.T) {
 	second, secondErr := runner.Up(ctx)
 	require.NoError(t, secondErr)
 	require.Empty(t, second)
+}
+
+func TestMySQLConcurrentUp(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	writeMigration(t, dir, "001_concurrent.sql", validSQL("concurrent_test"))
+
+	database, runner := newMySQLRunner(t, ctx, dir)
+
+	var wg sync.WaitGroup
+	errs := make([]error, 2)
+	for i := range 2 {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			_, errs[idx] = runner.Up(ctx)
+		}(i)
+	}
+	wg.Wait()
+	require.NoError(t, errs[0])
+	require.NoError(t, errs[1])
+
+	var count int
+	require.NoError(t, database.QueryRowContext(ctx, "SELECT COUNT(*) FROM shift_migrations").Scan(&count))
+	require.Equal(t, 1, count)
+
+	var tableCount int
+	require.NoError(t, database.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM information_schema.tables
+WHERE table_schema = DATABASE() AND table_name = 'concurrent_test'
+`).Scan(&tableCount))
+	require.Equal(t, 1, tableCount)
 }
 
 func TestMySQLPartialFailure(t *testing.T) {

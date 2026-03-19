@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "transcripts": {
+    "/home/robot/.cursor/projects/home-robot-sqlshift/agent-transcripts/0e2f7045-ee76-4798-b30a-2f2d33df495c/0e2f7045-ee76-4798-b30a-2f2d33df495c.jsonl": {
+      "mtimeMs": 1773711318000,
+      "lastProcessedAt": "2026-03-16T00:00:00.000Z"
+    },
+    "/home/robot/.cursor/projects/home-robot-sqlshift/agent-transcripts/5d198983-3406-4c5f-b44b-6cac26f10791/5d198983-3406-4c5f-b44b-6cac26f10791.jsonl": {
+      "mtimeMs": 1773716445000,
+      "lastProcessedAt": "2026-03-16T00:00:00.000Z"
+    },
+    "/home/robot/.cursor/projects/home-robot-sqlshift/agent-transcripts/e6cf5588-1ce8-48b2-83dc-3f82b6fbd8b3/e6cf5588-1ce8-48b2-83dc-3f82b6fbd8b3.jsonl": {
+      "mtimeMs": 1773782432000,
+      "lastProcessedAt": "2026-03-16T00:00:00.000Z"
+    }
+  }
+}
+

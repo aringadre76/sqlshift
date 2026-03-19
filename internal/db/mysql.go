@@ -7,11 +7,39 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"sync"
 
 	mysqlDriver "github.com/go-sql-driver/mysql"
 )
 
 type MySQLDialect struct{}
+
+func (MySQLDialect) AcquireUpLock(ctx context.Context, db *sql.DB, tableName string) (func(), error) {
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("reserving connection for migration lock: %w", err)
+	}
+	name := migrationNamedLockMySQL(tableName)
+	var got sql.NullInt64
+	if err := conn.QueryRowContext(ctx, `SELECT GET_LOCK(?, ?)`, name, migrationLockTimeoutSeconds).Scan(&got); err != nil {
+		_ = conn.Close()
+		return nil, fmt.Errorf("acquiring mysql named lock: %w", err)
+	}
+	if !got.Valid || got.Int64 != 1 {
+		_ = conn.Close()
+		if !got.Valid {
+			return nil, fmt.Errorf("acquiring mysql named lock: unexpected NULL from GET_LOCK")
+		}
+		return nil, fmt.Errorf("acquiring mysql named lock: timeout after %ds", migrationLockTimeoutSeconds)
+	}
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			defer conn.Close()
+			_, _ = conn.ExecContext(context.Background(), `SELECT RELEASE_LOCK(?)`, name)
+		})
+	}, nil
+}
 
 func formatMySQLDSN(raw string) (string, error) {
 	parsed, err := url.Parse(raw)
@@ -40,7 +68,12 @@ func formatMySQLDSN(raw string) (string, error) {
 		return "", fmt.Errorf("unsupported MySQL DSN format -- v1 supports mysql://user:pass@host:port/dbname only")
 	}
 
-	return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", parsed.User.Username(), password, parsed.Hostname(), parsed.Port(), dbName), nil
+	// Migration up/down sections are executed as a single Exec; the MySQL driver
+	// rejects multiple statements unless multiStatements is enabled.
+	return fmt.Sprintf(
+		"%s:%s@tcp(%s:%s)/%s?multiStatements=true",
+		parsed.User.Username(), password, parsed.Hostname(), parsed.Port(), dbName,
+	), nil
 }
 
 func (MySQLDialect) CreateHistoryTable(ctx context.Context, db *sql.DB, tableName string) error {
@@ -59,6 +92,9 @@ CREATE TABLE IF NOT EXISTS %s (
 )`, tableName)
 	if _, err := tx.ExecContext(ctx, query); err != nil {
 		_ = tx.Rollback()
+		if isMySQLBenignConcurrentDDL(err) {
+			return nil
+		}
 		return fmt.Errorf("creating history table %s: %w", tableName, err)
 	}
 	if err := tx.Commit(); err != nil {
@@ -124,4 +160,9 @@ ORDER BY version`, tableName)
 func (MySQLDialect) IsTableNotFound(err error) bool {
 	var mysqlErr *mysqlDriver.MySQLError
 	return errors.As(err, &mysqlErr) && mysqlErr.Number == 1146
+}
+
+func isMySQLBenignConcurrentDDL(err error) bool {
+	var mysqlErr *mysqlDriver.MySQLError
+	return errors.As(err, &mysqlErr) && mysqlErr.Number == 1050
 }

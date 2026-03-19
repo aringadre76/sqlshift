@@ -9,6 +9,10 @@ import (
 
 type SQLiteDialect struct{}
 
+func (SQLiteDialect) AcquireUpLock(context.Context, *sql.DB, string) (func(), error) {
+	return func() {}, nil
+}
+
 func (SQLiteDialect) CreateHistoryTable(ctx context.Context, db *sql.DB, tableName string) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {

@@ -16,7 +16,7 @@ func TestFormatMySQLDSN(t *testing.T) {
 		{
 			name:  "valid standard url",
 			input: "mysql://user:pass@localhost:3306/sqlshift",
-			want:  "user:pass@tcp(localhost:3306)/sqlshift",
+			want:  "user:pass@tcp(localhost:3306)/sqlshift?multiStatements=true",
 		},
 		{
 			name:    "missing port",

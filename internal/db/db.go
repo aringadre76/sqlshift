@@ -13,6 +13,10 @@ import (
 )
 
 type Dialect interface {
+	// AcquireUpLock blocks until this process holds an exclusive migration lock for
+	// this database. The returned release function must be called when finished
+	// (including on error); it is safe to call at most once.
+	AcquireUpLock(ctx context.Context, db *sql.DB, tableName string) (release func(), err error)
 	CreateHistoryTable(ctx context.Context, db *sql.DB, tableName string) error
 	InsertMigration(ctx context.Context, tx *sql.Tx, tableName string, record AppliedMigration) error
 	DeleteMigration(ctx context.Context, tx *sql.Tx, tableName string, version int) error

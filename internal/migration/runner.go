@@ -47,6 +47,12 @@ func NewRunner(database *sql.DB, dialect dbpkg.Dialect, dir string, tableName st
 }
 
 func (r *Runner) Up(ctx context.Context) ([]Migration, error) {
+	releaseLock, err := r.Dialect.AcquireUpLock(ctx, r.DB, r.TableName)
+	if err != nil {
+		return nil, fmt.Errorf("acquiring migration lock: %w", err)
+	}
+	defer releaseLock()
+
 	if err := r.Dialect.CreateHistoryTable(ctx, r.DB, r.TableName); err != nil {
 		return nil, fmt.Errorf("creating history table: %w", err)
 	}

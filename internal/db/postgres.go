@@ -5,11 +5,32 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
+	"sync"
 
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type PostgresDialect struct{}
+
+func (PostgresDialect) AcquireUpLock(ctx context.Context, db *sql.DB, tableName string) (func(), error) {
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("reserving connection for migration lock: %w", err)
+	}
+	key := migrationAdvisoryLockKey(tableName)
+	if _, err := conn.ExecContext(ctx, `SELECT pg_advisory_lock($1)`, key); err != nil {
+		_ = conn.Close()
+		return nil, fmt.Errorf("acquiring pg advisory lock: %w", err)
+	}
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			defer conn.Close()
+			_, _ = conn.ExecContext(context.Background(), `SELECT pg_advisory_unlock($1)`, key)
+		})
+	}, nil
+}
 
 func (PostgresDialect) CreateHistoryTable(ctx context.Context, db *sql.DB, tableName string) error {
 	tx, err := db.BeginTx(ctx, nil)
@@ -27,6 +48,9 @@ CREATE TABLE IF NOT EXISTS %s (
 )`, tableName)
 	if _, err := tx.ExecContext(ctx, query); err != nil {
 		_ = tx.Rollback()
+		if isPostgresBenignConcurrentDDL(err) {
+			return nil
+		}
 		return fmt.Errorf("creating history table %s: %w", tableName, err)
 	}
 	if err := tx.Commit(); err != nil {
@@ -92,4 +116,22 @@ ORDER BY version`, tableName)
 func (PostgresDialect) IsTableNotFound(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "42P01"
+}
+
+func isPostgresBenignConcurrentDDL(err error) bool {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) {
+		return false
+	}
+	switch pgErr.Code {
+	case "42P07": // duplicate_table
+		return true
+	case "23505": // unique_violation (e.g. concurrent CREATE TABLE IF NOT EXISTS racing on pg_type)
+		if strings.Contains(pgErr.ConstraintName, "pg_type") {
+			return true
+		}
+		return strings.Contains(strings.ToLower(pgErr.Message), "pg_type")
+	default:
+		return false
+	}
 }
