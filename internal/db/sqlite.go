@@ -91,6 +91,15 @@ ORDER BY version`, tableName)
 	return applied, nil
 }
 
+func (SQLiteDialect) UpdateMigrationChecksum(ctx context.Context, db *sql.DB, tableName string, version int, checksum string) error {
+	query := fmt.Sprintf("UPDATE %s SET checksum = ? WHERE version = ?", tableName)
+	_, err := db.ExecContext(ctx, query, checksum, version)
+	if err != nil {
+		return fmt.Errorf("updating checksum for version %03d: %w", version, err)
+	}
+	return nil
+}
+
 func (SQLiteDialect) IsTableNotFound(err error) bool {
 	return err != nil && strings.Contains(strings.ToLower(err.Error()), "no such table")
 }

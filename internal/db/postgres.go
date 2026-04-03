@@ -113,6 +113,15 @@ ORDER BY version`, tableName)
 	return applied, nil
 }
 
+func (PostgresDialect) UpdateMigrationChecksum(ctx context.Context, db *sql.DB, tableName string, version int, checksum string) error {
+	query := fmt.Sprintf("UPDATE %s SET checksum = $1 WHERE version = $2", tableName)
+	_, err := db.ExecContext(ctx, query, checksum, version)
+	if err != nil {
+		return fmt.Errorf("updating checksum for version %03d: %w", version, err)
+	}
+	return nil
+}
+
 func (PostgresDialect) IsTableNotFound(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "42P01"

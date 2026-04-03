@@ -36,28 +36,28 @@ sqlshift is a SQL-first database migration CLI tool written in Go, supporting Po
 - Builds on existing planning logic
 - Impact: HIGH | Safety: MEDIUM
 
-### 2. Dry-Run Mode (HIGH)
+### 2. Dry-Run Mode (HIGH) - **COMPLETED**
 **Feature:** `--dry-run` flag for `up` and `down`
 - Preview migrations without executing
 - Essential for CI/CD safety
 - Read-only operation
 - Impact: HIGH | Safety: HIGH
 
-### 3. Verbose Output (MEDIUM)
+### 3. Verbose Output (MEDIUM) - **COMPLETED**
 **Feature:** `-v` / `--verbose` flag
 - Show actual SQL statements during execution
 - Critical for debugging
 - Simple implementation
 - Impact: MEDIUM | Safety: HIGH
 
-### 4. Repair Command (MEDIUM)
+### 4. Repair Command (MEDIUM) - **COMPLETED**
 **Feature:** `repair`
 - Fix checksum mismatches
 - Mark migrations as resolved
 - Currently requires manual DB edits
 - Impact: MEDIUM | Safety: MEDIUM
 
-### 5. Baseline Command (MEDIUM)
+### 5. Baseline Command (MEDIUM) - **COMPLETED**
 **Feature:** `baseline <version>`
 - Mark existing database at specific version
 - Enable adoption on brownfield projects

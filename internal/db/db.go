@@ -20,6 +20,7 @@ type Dialect interface {
 	CreateHistoryTable(ctx context.Context, db *sql.DB, tableName string) error
 	InsertMigration(ctx context.Context, tx *sql.Tx, tableName string, record AppliedMigration) error
 	DeleteMigration(ctx context.Context, tx *sql.Tx, tableName string, version int) error
+	UpdateMigrationChecksum(ctx context.Context, db *sql.DB, tableName string, version int, checksum string) error
 	GetApplied(ctx context.Context, db *sql.DB, tableName string) ([]AppliedMigration, error)
 	IsTableNotFound(err error) bool
 }

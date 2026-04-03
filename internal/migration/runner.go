@@ -348,3 +348,11 @@ func (r *Runner) applyMigration(ctx context.Context, migration *Migration) error
 
 	return nil
 }
+
+// UpdateChecksum updates the checksum for a migration in the database.
+// This is used by the repair command to fix checksum mismatches.
+func (r *Runner) UpdateChecksum(ctx context.Context, version int, newChecksum string) error {
+	query := fmt.Sprintf("UPDATE %s SET checksum = ? WHERE version = ?", r.TableName)
+	_, err := r.DB.ExecContext(ctx, query, newChecksum, version)
+	return err
+}

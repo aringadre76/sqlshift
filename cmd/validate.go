@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/aringadre76/sqlshift/internal/migration"
+	"github.com/aringadre76/sqlshift/internal/output"
 	"github.com/spf13/cobra"
 )
 
@@ -21,14 +22,21 @@ var validateCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		if len(issues) == 0 {
-			cmd.Println("Validation OK.")
-			return nil
+
+		// Convert to output format
+		outputIssues := make([]output.ValidationIssue, len(issues))
+		for i, issue := range issues {
+			outputIssues[i] = output.ValidationIssue{
+				Severity: issue.Severity,
+				Message:  issue.Message,
+			}
 		}
 
-		for _, issue := range issues {
-			cmd.Printf("%s: %s\n", issue.Severity, issue.Message)
+		format, _ := cmd.Flags().GetString("output")
+		if err := output.PrintValidate(cmd.OutOrStdout(), format, outputIssues); err != nil {
+			return fmt.Errorf("printing output: %w", err)
 		}
+
 		if migration.HasValidationErrors(issues) {
 			return fmt.Errorf("validation failed")
 		}

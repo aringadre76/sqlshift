@@ -2,10 +2,12 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"text/tabwriter"
 
 	dbpkg "github.com/aringadre76/sqlshift/internal/db"
 	"github.com/aringadre76/sqlshift/internal/migration"
+	"github.com/aringadre76/sqlshift/internal/output"
 	"github.com/spf13/cobra"
 )
 
@@ -34,16 +36,34 @@ var upCmd = &cobra.Command{
 			return nil
 		}
 
-		if verbose {
-			cmd.Println("Applying migrations:")
+		format, _ := cmd.Flags().GetString("output")
+		if err := printApplied(cmd.OutOrStdout(), format, applied); err != nil {
+			return fmt.Errorf("printing output: %w", err)
 		}
-		writer := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 8, 2, ' ', 0)
-		_, _ = fmt.Fprintln(writer, "VERSION\tNAME")
-		for _, entry := range applied {
-			_, _ = fmt.Fprintf(writer, "%03d\t%s\n", entry.Version, entry.Name)
-		}
-		return writer.Flush()
+
+		return nil
 	},
+}
+
+func printApplied(w io.Writer, format string, applied []migration.Migration) error {
+	migrations := make([]output.MigrationInfo, len(applied))
+	for i, m := range applied {
+		migrations[i] = output.MigrationInfo{
+			Version: m.Version,
+			Name:    m.Name,
+		}
+	}
+
+	if format == "json" {
+		return output.PrintStatus(w, "json", migrations)
+	}
+
+	writer := tabwriter.NewWriter(w, 0, 8, 2, ' ', 0)
+	_, _ = fmt.Fprintln(writer, "VERSION\tNAME")
+	for _, entry := range applied {
+		_, _ = fmt.Fprintf(writer, "%03d\t%s\n", entry.Version, entry.Name)
+	}
+	return writer.Flush()
 }
 
 func runUpDryRun(cmd *cobra.Command, runner *migration.Runner) error {

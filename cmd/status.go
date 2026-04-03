@@ -1,9 +1,7 @@
 package cmd
 
 import (
-	"fmt"
-	"text/tabwriter"
-
+	"github.com/aringadre76/sqlshift/internal/output"
 	"github.com/spf13/cobra"
 )
 
@@ -17,26 +15,28 @@ var statusCmd = &cobra.Command{
 		}
 		defer cleanup()
 
-		status, err := runner.Status(cmd.Context())
+		entries, err := runner.Status(cmd.Context())
 		if err != nil {
 			return err
 		}
-		if len(status) == 0 {
+		if len(entries) == 0 {
 			cmd.Println("No migration files found.")
 			return nil
 		}
 
-		writer := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 8, 2, ' ', 0)
-		_, _ = fmt.Fprintln(writer, "VERSION\tNAME\tSTATE\tAPPLIED_AT")
-		for _, entry := range status {
-			appliedAt := entry.AppliedAt
-			if appliedAt == "" {
-				appliedAt = "-"
+		// Convert to output format
+		migrations := make([]output.MigrationInfo, len(entries))
+		for i, e := range entries {
+			migrations[i] = output.MigrationInfo{
+				Version:   e.Version,
+				Name:      e.Name,
+				State:     e.State,
+				AppliedAt: e.AppliedAt,
 			}
-			_, _ = fmt.Fprintf(writer, "%03d\t%s\t%s\t%s\n", entry.Version, entry.Name, entry.State, appliedAt)
 		}
 
-		return writer.Flush()
+		format, _ := cmd.Flags().GetString("output")
+		return output.PrintStatus(cmd.OutOrStdout(), format, migrations)
 	},
 }
 

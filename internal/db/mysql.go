@@ -157,6 +157,15 @@ ORDER BY version`, tableName)
 	return applied, nil
 }
 
+func (MySQLDialect) UpdateMigrationChecksum(ctx context.Context, db *sql.DB, tableName string, version int, checksum string) error {
+	query := fmt.Sprintf("UPDATE %s SET checksum = ? WHERE version = ?", tableName)
+	_, err := db.ExecContext(ctx, query, checksum, version)
+	if err != nil {
+		return fmt.Errorf("updating checksum for version %03d: %w", version, err)
+	}
+	return nil
+}
+
 func (MySQLDialect) IsTableNotFound(err error) bool {
 	var mysqlErr *mysqlDriver.MySQLError
 	return errors.As(err, &mysqlErr) && mysqlErr.Number == 1146

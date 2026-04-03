@@ -50,6 +50,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&tableNameFlag, "table-name", "", "Schema history table name")
 	rootCmd.PersistentFlags().BoolVar(&dryRunFlag, "dry-run", false, "Preview migrations without applying")
 	rootCmd.PersistentFlags().BoolVar(&verboseFlag, "verbose", false, "Show detailed output including SQL statements")
+	rootCmd.PersistentFlags().String("output", "table", "Output format: table or json")
 }
 
 func currentConfig(cmd *cobra.Command) (config.Config, error) {
