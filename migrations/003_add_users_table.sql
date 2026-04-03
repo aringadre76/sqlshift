@@ -1,0 +1,9 @@
+-- shift:up
+CREATE TABLE users (
+  id INTEGER PRIMARY KEY,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- shift:down
+DROP TABLE users;

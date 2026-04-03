@@ -10,6 +10,8 @@ BINARY="./bin/sqlshift"
 COMPOSE_FILE="$ROOT/docker-compose.real-db.yml"
 WITH_DOCKER=false
 ONLY=""
+FALLBACK_PG_NAME="sqlshift-e2e-postgres"
+FALLBACK_MY_NAME="sqlshift-e2e-mysql"
 
 usage() {
   echo "Usage: $0 [options]"
@@ -62,16 +64,91 @@ compose_up() {
   return 2
 }
 
+docker_run_stack() {
+  if ! docker inspect "$FALLBACK_PG_NAME" >/dev/null 2>&1; then
+    if ! docker run -d \
+      --name "$FALLBACK_PG_NAME" \
+      -e POSTGRES_USER=sqlshift \
+      -e POSTGRES_PASSWORD=sqlshift \
+      -e POSTGRES_DB=sqlshift_real \
+      -p 5432:5432 \
+      postgres:16 >/dev/null; then
+      echo "e2e: postgres fallback container not started (port may already be in use); reusing existing localhost:5432 service if available"
+    fi
+  else
+    if ! docker start "$FALLBACK_PG_NAME" >/dev/null 2>&1; then
+      echo "e2e: postgres fallback container exists but was not started; reusing existing localhost:5432 service if available"
+    fi
+  fi
+
+  if ! docker inspect "$FALLBACK_MY_NAME" >/dev/null 2>&1; then
+    if ! docker run -d \
+      --name "$FALLBACK_MY_NAME" \
+      -e MYSQL_ROOT_PASSWORD=rootpass \
+      -e MYSQL_DATABASE=sqlshift_real \
+      -e MYSQL_USER=sqlshift \
+      -e MYSQL_PASSWORD=sqlshift \
+      -p 3306:3306 \
+      mysql:8 >/dev/null; then
+      echo "e2e: mysql fallback container not started (port may already be in use); reusing existing localhost:3306 service if available"
+    fi
+  else
+    if ! docker start "$FALLBACK_MY_NAME" >/dev/null 2>&1; then
+      echo "e2e: mysql fallback container exists but was not started; reusing existing localhost:3306 service if available"
+    fi
+  fi
+}
+
+wait_fallback_db_ready() {
+  local has_pg=0
+  local has_my=0
+  if docker inspect "$FALLBACK_PG_NAME" >/dev/null 2>&1; then
+    [[ "$(docker inspect -f '{{.State.Running}}' "$FALLBACK_PG_NAME" 2>/dev/null || echo false)" == "true" ]] && has_pg=1
+  fi
+  if docker inspect "$FALLBACK_MY_NAME" >/dev/null 2>&1; then
+    [[ "$(docker inspect -f '{{.State.Running}}' "$FALLBACK_MY_NAME" 2>/dev/null || echo false)" == "true" ]] && has_my=1
+  fi
+  if [[ "$has_pg" -eq 0 && "$has_my" -eq 0 ]]; then
+    # We likely reused already-running services bound to host ports.
+    sleep 3
+    return 0
+  fi
+  local i=0
+  for i in $(seq 1 90); do
+    local pg_ok=0
+    local my_ok=0
+    if [[ "$has_pg" -eq 1 ]]; then
+      docker exec "$FALLBACK_PG_NAME" pg_isready -U sqlshift -d sqlshift_real >/dev/null 2>&1 && pg_ok=1
+    else
+      pg_ok=1
+    fi
+    if [[ "$has_my" -eq 1 ]]; then
+      docker exec "$FALLBACK_MY_NAME" mysqladmin ping -h 127.0.0.1 -usqlshift -psqlshift >/dev/null 2>&1 && my_ok=1
+    else
+      my_ok=1
+    fi
+    if [[ "$pg_ok" -eq 1 && "$my_ok" -eq 1 ]]; then
+      return 0
+    fi
+    sleep 2
+  done
+  echo "error: docker-run fallback databases did not become ready in time" >&2
+  return 1
+}
+
 wait_for_compose() {
   if ! command -v docker >/dev/null 2>&1; then
     echo "error: docker not found" >&2
     exit 1
   fi
-  echo "e2e: starting fake databases (docker compose)..."
+  echo "e2e: starting fake databases..."
   local st=0
   compose_up || st=$?
   if [[ "$st" -eq 2 ]]; then
-    exit 1
+    echo "e2e: compose unavailable; falling back to docker run containers"
+    docker_run_stack
+    wait_fallback_db_ready
+    return
   fi
   if [[ "$st" -ne 0 ]]; then
     echo "e2e: waiting for databases (no --wait or docker-compose v1)..."
