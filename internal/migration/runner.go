@@ -46,7 +46,7 @@ func NewRunner(database *sql.DB, dialect dbpkg.Dialect, dir string, tableName st
 	}
 }
 
-func (r *Runner) Up(ctx context.Context) ([]Migration, error) {
+func (r *Runner) UpWithVerbose(ctx context.Context, verbose bool) ([]Migration, error) {
 	releaseLock, err := r.Dialect.AcquireUpLock(ctx, r.DB, r.TableName)
 	if err != nil {
 		return nil, fmt.Errorf("acquiring migration lock: %w", err)
@@ -119,6 +119,37 @@ func (r *Runner) Up(ctx context.Context) ([]Migration, error) {
 	}
 
 	return appliedNow, nil
+}
+
+func (r *Runner) Up(ctx context.Context) ([]Migration, error) {
+	return r.UpWithVerbose(ctx, false)
+}
+
+func (r *Runner) PlanUp(ctx context.Context) ([]Migration, error) {
+	migrations, err := LoadDir(r.MigrationsDir)
+	if err != nil {
+		return nil, fmt.Errorf("loading migrations from %s: %w", r.MigrationsDir, err)
+	}
+
+	applied, err := r.Dialect.GetApplied(ctx, r.DB, r.TableName)
+	if err != nil && !r.Dialect.IsTableNotFound(err) {
+		return nil, fmt.Errorf("querying applied migrations: %w", err)
+	}
+	if r.Dialect.IsTableNotFound(err) {
+		applied = nil
+	}
+
+	appliedVersions := make(map[int]struct{}, len(applied))
+	for _, record := range applied {
+		appliedVersions[record.Version] = struct{}{}
+	}
+
+	plan := PlanUp(migrations, appliedVersions)
+	result := make([]Migration, len(plan))
+	for i, m := range plan {
+		result[i] = *m
+	}
+	return result, nil
 }
 
 func (r *Runner) Down(ctx context.Context) (*Migration, error) {

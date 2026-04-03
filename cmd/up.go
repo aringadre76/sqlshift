@@ -19,7 +19,13 @@ var upCmd = &cobra.Command{
 		}
 		defer cleanup()
 
-		applied, err := runner.Up(cmd.Context())
+		dryRun, _ := cmd.Flags().GetBool("dry-run")
+		if dryRun {
+			return runUpDryRun(cmd, runner)
+		}
+
+		verbose, _ := cmd.Flags().GetBool("verbose")
+		applied, err := runner.UpWithVerbose(cmd.Context(), verbose)
 		if err != nil {
 			return err
 		}
@@ -28,6 +34,9 @@ var upCmd = &cobra.Command{
 			return nil
 		}
 
+		if verbose {
+			cmd.Println("Applying migrations:")
+		}
 		writer := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 8, 2, ' ', 0)
 		_, _ = fmt.Fprintln(writer, "VERSION\tNAME")
 		for _, entry := range applied {
@@ -35,6 +44,25 @@ var upCmd = &cobra.Command{
 		}
 		return writer.Flush()
 	},
+}
+
+func runUpDryRun(cmd *cobra.Command, runner *migration.Runner) error {
+	plan, err := runner.PlanUp(cmd.Context())
+	if err != nil {
+		return err
+	}
+	if len(plan) == 0 {
+		cmd.Println("No pending migrations.")
+		return nil
+	}
+
+	cmd.Println("Pending migrations (dry run):")
+	writer := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 8, 2, ' ', 0)
+	_, _ = fmt.Fprintln(writer, "VERSION\tNAME")
+	for _, entry := range plan {
+		_, _ = fmt.Fprintf(writer, "%03d\t%s\n", entry.Version, entry.Name)
+	}
+	return writer.Flush()
 }
 
 func init() {

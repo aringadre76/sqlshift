@@ -15,6 +15,8 @@ var (
 	databaseURLFlag   string
 	migrationsDirFlag string
 	tableNameFlag     string
+	dryRunFlag        bool
+	verboseFlag       bool
 )
 
 var rootCmd = &cobra.Command{
@@ -46,6 +48,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&databaseURLFlag, "database-url", "", "Database connection URL")
 	rootCmd.PersistentFlags().StringVar(&migrationsDirFlag, "migrations-dir", "", "Directory containing SQL migrations")
 	rootCmd.PersistentFlags().StringVar(&tableNameFlag, "table-name", "", "Schema history table name")
+	rootCmd.PersistentFlags().BoolVar(&dryRunFlag, "dry-run", false, "Preview migrations without applying")
+	rootCmd.PersistentFlags().BoolVar(&verboseFlag, "verbose", false, "Show detailed output including SQL statements")
 }
 
 func currentConfig(cmd *cobra.Command) (config.Config, error) {

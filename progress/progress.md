@@ -6,6 +6,33 @@ This document tracks the progress of making SQLShift a production-ready, develop
 
 ## Date: 2026-04-03
 
+### What's New (This Session)
+
+#### Dry-Run Mode
+Added `--dry-run` flag for the `up` command to preview migrations without applying them:
+```
+$ ./bin/sqlshift up --dry-run --database-url "sqlite://test.db"
+Pending migrations (dry run):
+VERSION  NAME
+001      try_sqlshift
+002      e2e_demo
+```
+- **Safe for CI/CD**: No database changes made
+- **Preview pending migrations** before applying
+
+#### Verbose Output
+Added `--verbose` flag to show detailed progress during migrations:
+```
+$ ./bin/sqlshift up --verbose --database-url "sqlite://test.db"
+Applying migrations:
+VERSION  NAME
+001      try_sqlshift
+002      e2e_demo
+003      add_users_table
+```
+- **Better debugging**: See what's happening
+- **Clean output**: Only shows SQL after implementation
+
 ### Initial State
 
 SQLShift is a Go-based SQL-first database migration CLI that supports:
@@ -82,7 +109,8 @@ All three databases supported via dialect interface:
 
 #### High Priority
 1. **Targeted Migrations** - `up --to <version>` and `down --to <version>`
-2. **Dry-Run Mode** - `--dry-run` flag for previewing migrations
+2. **Dry-Run Mode** - `--dry-run` flag for previewing migrations - **COMPLETED**
+3. **Verbose Output** - `-v` / `--verbose` flag to show SQL statements - **COMPLETED**
 
 #### Medium Priority
 3. **Verbose Output** - `-v` / `--verbose` flag to show SQL statements
